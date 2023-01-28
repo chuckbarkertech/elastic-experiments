@@ -55,18 +55,18 @@ async fn load_motor_vehicles() -> Result<ElasticLoadResults, Box<dyn std::error:
     let f = "../../data/Motor_Vehicle_Crashes_-_Vehicle_Information__Three_Year_Window.csv";
     let mut rdr = csv::Reader::from_path(f).unwrap();
     let mut records: Vec<Box<MotorVehicleCrashRecord>> = Vec::with_capacity(10_000);
-    let loader = BulkElasticLoad::new("http://localhost:9200/")?;
+    let mut loader = BulkElasticLoad::new("https://localhost:9200/")?;
     let mut response_total = ElasticLoadResults::new();
     for result in rdr.deserialize() {
         let record: MotorVehicleCrashRecord = result?;
         records.push(Box::new(record));
         if records.len() >= 10_000 {
-            response_total+= ElasticLoad::load(&loader, &records).await?;
+            response_total+= ElasticLoad::load(&mut loader, &records).await?;
             records.clear();
         }
     }
     if records.len() > 0 {
-        response_total+= ElasticLoad::load(&loader, &records).await?;
+        response_total+= ElasticLoad::load(&mut loader, &records).await?;
         records.clear();
     }
 

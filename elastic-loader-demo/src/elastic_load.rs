@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait ElasticLoad {
-    async fn load<T: Serialize + std::marker::Send + std::marker::Sync>(&self, items: &Vec<Box<T>>) ->  Result<ElasticLoadResults, String>;
+    async fn load<T: Serialize + std::marker::Send + std::marker::Sync>(&mut self, items: &Vec<Box<T>>) ->  Result<ElasticLoadResults, String>;
 }
 
 pub struct ElasticLoadResults {
