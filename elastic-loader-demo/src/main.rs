@@ -1,18 +1,12 @@
 extern crate core;
 
-use time::Instant;
-use elasticsearch::http::Url;
-use elasticsearch::http::transport::SingleNodeConnectionPool;
-use elasticsearch::http::transport::TransportBuilder;
-use elasticsearch::BulkParts;
-use elasticsearch::Elasticsearch;
-use elasticsearch::{BulkOperation, BulkOperations};
-use tokio::time;
+use std::time::Instant;
 use serde::{Deserialize, Serialize};
-use bulk_tally::BulkTally;
+use crate::bulk_load::BulkElasticLoad;
+use crate::elastic_load::{ElasticLoad, ElasticLoadResults};
 
-mod bulk_tally;
-mod index_results;
+mod bulk_load;
+mod elastic_load;
 
 
 #[tokio::main]
@@ -57,86 +51,25 @@ struct MotorVehicleCrashRecord {
     partial_vin: String,
 }
 
-async fn load_motor_vehicles() -> Result<BulkTally, Box<dyn std::error::Error>> {
+async fn load_motor_vehicles() -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
     let f = "../../data/Motor_Vehicle_Crashes_-_Vehicle_Information__Three_Year_Window.csv";
     let mut rdr = csv::Reader::from_path(f).unwrap();
-    let mut records: Vec<MotorVehicleCrashRecord> = Vec::new();
-    let mut bulk_tally = BulkTally::new();
+    let mut records: Vec<Box<MotorVehicleCrashRecord>> = Vec::with_capacity(10_000);
+    let loader = BulkElasticLoad::new("http://localhost:9200/")?;
+    let mut response_total = ElasticLoadResults::new();
     for result in rdr.deserialize() {
         let record: MotorVehicleCrashRecord = result?;
-        records.push(record);
+        records.push(Box::new(record));
         if records.len() >= 10_000 {
-            let next_id = bulk_tally.num_created - records.len() + 1;
-            let bulk_response =
-                index_cluster(next_id, &records).await?;
-            bulk_tally += bulk_response;
+            response_total+= ElasticLoad::load(&loader, &records).await?;
             records.clear();
         }
     }
     if records.len() > 0 {
-        let next_id = bulk_tally.num_created - records.len() + 1;
-        let bulk_response =
-            index_cluster(next_id, &records).await?;
-        bulk_tally += bulk_response;
+        response_total+= ElasticLoad::load(&loader, &records).await?;
         records.clear();
     }
 
-    Ok(bulk_tally)
+    Ok(response_total)
 }
 
-async fn index_cluster(start_id: usize, records: &Vec<MotorVehicleCrashRecord>) -> Result<BulkTally, Box<dyn std::error::Error>> {
-    let url = Url::parse("http://localhost:9200")?;
-    let conn_pool = SingleNodeConnectionPool::new(url);
-    let transport = TransportBuilder::new(conn_pool).disable_proxy().build()?;
-    let client = Elasticsearch::new(transport);
-
-    let mut ops = BulkOperations::new();
-    let mut id: usize = start_id;
-    for record in records {
-        ops.push(BulkOperation::create(id.to_string(), record))?;
-        id += 1;
-    }
-
-    let response = client.bulk(BulkParts::Index("motor-vehicle-crashes"))
-        .body(vec![ops])
-        .send()
-        .await?;
-
-    let bulk_response = BulkTally::parse(response).await?;
-
-    Ok(bulk_response)
-}
-
-#[cfg(test)]
-mod more_tests {
-    #[test]
-    #[ignore]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4, "result was not 4, it was {}", result);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4, "result was not 4, it was {}", result);
-    }
-
-    #[test]
-    #[should_panic(expected = "get out of here")]
-    fn it_panics() {
-        panic!("get out of here")
-    }
-
-    #[test]
-    fn it_is_ok() -> Result<(), String> {
-        if 2 + 2 == 4 {
-            Ok(())
-        } else {
-            Err(String::from("two plus two does not equal four"))
-        }
-    }
-}
