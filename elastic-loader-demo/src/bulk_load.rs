@@ -8,7 +8,6 @@ use elasticsearch::http::transport::TransportBuilder;
 use elasticsearch::http::response::Response;
 use elasticsearch::{BulkOperation, BulkOperations};
 use elasticsearch::BulkParts;
-use async_trait::async_trait;
 use elasticsearch::auth::Credentials;
 use elasticsearch::cert::CertificateValidation;
 
@@ -31,11 +30,12 @@ impl BulkElasticLoad {
         })
     }
 
-    async fn load<T: Serialize>(&mut self, items: &Vec<Box<T>>) -> Result<Response, Box<dyn std::error::Error>> {
+    async fn load<T: Serialize>(&mut self, items: &[Box<T>]) -> Result<Response, Box<dyn std::error::Error>> {
         let mut ops = BulkOperations::new();
         for item in items {
             self.last_id += 1;
             ops.push(BulkOperation::create(&self.last_id.to_string(), item))?;
+            // ops.push(BulkOperation::index(item))?;
         }
 
         let response = self.client.bulk(BulkParts::Index("motor-vehicle-crashes"))
@@ -72,15 +72,19 @@ impl BulkElasticLoad {
     }
 }
 
-#[async_trait]
 impl ElasticLoad for BulkElasticLoad {
-    async fn load<T: Serialize + std::marker::Send + std::marker::Sync>(&mut self, items: &Vec<Box<T>>) -> Result<ElasticLoadResults, String> {
-        let response = BulkElasticLoad::load(self, items).await.unwrap_or_else(|_| {
-            panic!("breaking");
-        });
-        let results = self.summarize_response(response).await.unwrap_or_else(|_| {
-            panic!("breaking");
-        });
-        Ok(results)
+    async fn load<T: Serialize>(&mut self, items: &[Box<T>]) -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
+        let mut tally = ElasticLoadResults::new();
+        let items_length = items.len();
+        for first_idx in (0..items_length).step_by(10_000) {
+            let last_idx = {
+                let last_idx = first_idx + 10_000;
+                if last_idx < items_length { last_idx } else { items_length }
+            };
+            let response = BulkElasticLoad::load(self,
+                                                 &items[first_idx..last_idx]).await?;
+            tally += self.summarize_response(response).await?;
+        }
+        Ok(tally)
     }
 }

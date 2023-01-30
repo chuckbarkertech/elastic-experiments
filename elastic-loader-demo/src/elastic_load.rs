@@ -1,10 +1,8 @@
 use serde::{Serialize};
 use std::ops::AddAssign;
-use async_trait::async_trait;
 
-#[async_trait]
 pub trait ElasticLoad {
-    async fn load<T: Serialize + std::marker::Send + std::marker::Sync>(&mut self, items: &Vec<Box<T>>) ->  Result<ElasticLoadResults, String>;
+    async fn load<T: Serialize + std::marker::Send + std::marker::Sync>(&mut self, items: &[Box<T>]) ->  Result<ElasticLoadResults, Box<dyn std::error::Error>>;
 }
 
 pub struct ElasticLoadResults {

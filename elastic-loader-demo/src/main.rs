@@ -1,22 +1,31 @@
+#![feature(async_fn_in_trait)]
+
 extern crate core;
 
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
 use crate::bulk_load::BulkElasticLoad;
-use crate::elastic_load::{ElasticLoad, ElasticLoadResults};
+use crate::elastic_load::{ElasticLoad};
+use crate::motor_vehicle_crash::MotorVehicleCrash;
 
 mod bulk_load;
 mod elastic_load;
+mod motor_vehicle_crash;
 
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let start = Instant::now();
-    let bulk_totals = load_motor_vehicles().await?;
+    let crashes = MotorVehicleCrash::load_csv(
+        String::from(
+            "../../data/Motor_Vehicle_Crashes_-_Vehicle_Information__Three_Year_Window.csv"))?;
 
-    let total_records = bulk_totals.num_total;
-    let total_created = bulk_totals.num_created;
-    let total_failed = bulk_totals.num_failed;
+
+    let start = Instant::now();
+    let mut loader = BulkElasticLoad::new("https://localhost:9200/")?;
+    let tally = ElasticLoad::load(&mut loader, &crashes[..]).await?;
+
+    let total_records = tally.num_total;
+    let total_created = tally.num_created;
+    let total_failed = tally.num_failed;
 
     let duration = start.elapsed();
     println!("Total Records: {total_records:?}");
@@ -28,48 +37,26 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct MotorVehicleCrashRecord {
-    year: String,
-    case_vehicle_id: String,
-    vehicle_body_type: String,
-    registration_class: String,
-    action_prior_to_accident: String,
-    type_or_axles_of_truck_or_bus: String,
-    direction_of_travel: String,
-    fuel_type: String,
-    vehicle_year: String,
-    state_of_registration: String,
-    number_of_occupants: String,
-    engine_cylinders: String,
-    vehicle_make: String,
-    contributing_factor_1: String,
-    contributing_factor_1_description: String,
-    contributing_factor_2: String,
-    contributing_factor_2_description: String,
-    event_type: String,
-    partial_vin: String,
-}
 
-async fn load_motor_vehicles() -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
-    let f = "../../data/Motor_Vehicle_Crashes_-_Vehicle_Information__Three_Year_Window.csv";
-    let mut rdr = csv::Reader::from_path(f).unwrap();
-    let mut records: Vec<Box<MotorVehicleCrashRecord>> = Vec::with_capacity(10_000);
-    let mut loader = BulkElasticLoad::new("https://localhost:9200/")?;
-    let mut response_total = ElasticLoadResults::new();
-    for result in rdr.deserialize() {
-        let record: MotorVehicleCrashRecord = result?;
-        records.push(Box::new(record));
-        if records.len() >= 10_000 {
-            response_total+= ElasticLoad::load(&mut loader, &records).await?;
-            records.clear();
-        }
-    }
-    if records.len() > 0 {
-        response_total+= ElasticLoad::load(&mut loader, &records).await?;
-        records.clear();
-    }
-
-    Ok(response_total)
-}
+// async fn load_motor_vehicles() -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
+//     let f = "../../data/Motor_Vehicle_Crashes_-_Vehicle_Information__Three_Year_Window.csv";
+//     let mut rdr = csv::Reader::from_path(f).unwrap();
+//     let mut records: Vec<Box<MotorVehicleCrashRecord>> = Vec::with_capacity(10_000);
+//     let mut loader = BulkElasticLoad::new("https://localhost:9200/")?;
+//     let mut response_total = ElasticLoadResults::new();
+//     for result in rdr.deserialize() {
+//         let record: MotorVehicleCrashRecord = result?;
+//         records.push(Box::new(record));
+//         if records.len() >= 10_000 {
+//             response_total += ElasticLoad::load(&mut loader, &records).await?;
+//             records.clear();
+//         }
+//     }
+//     if records.len() > 0 {
+//         response_total += ElasticLoad::load(&mut loader, &records).await?;
+//         records.clear();
+//     }
+//
+//     Ok(response_total)
+// }
 
