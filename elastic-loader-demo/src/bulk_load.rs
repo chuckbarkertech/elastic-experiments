@@ -1,5 +1,5 @@
 use crate::elastic_load::{ElasticLoad, ElasticLoadResults};
-use serde_json::{json, Value};
+use serde_json::{Value};
 use serde::{Serialize};
 use elasticsearch::{Elasticsearch};
 use elasticsearch::http::{Url};
@@ -10,7 +10,6 @@ use elasticsearch::{BulkOperation, BulkOperations};
 use elasticsearch::BulkParts;
 use elasticsearch::auth::Credentials;
 use elasticsearch::cert::CertificateValidation;
-use elasticsearch::indices::{IndicesCreateParts, IndicesDeleteParts};
 use elasticsearch::params::Refresh;
 use tokio::sync::{Semaphore};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -30,36 +29,36 @@ impl BulkElasticLoad {
 }
 
 impl BulkElasticLoad {
-    async fn delete_index(&self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(index) = &self.index {
-            self.client
-                .indices()
-                .delete(IndicesDeleteParts::Index(&[index.as_str()]))
-                .send()
-                .await?;
-        }
-        Ok(())
-    }
-
-    async fn create_index(&self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(index) = &self.index {
-            self.client
-                .indices()
-                .create(IndicesCreateParts::Index(&index))
-                .body(json!({
-                    "settings": {
-                        "index": {
-                            "number_of_shards": "3",
-                            "number_of_replicas": "1",
-                            "refresh_interval": "1s",
-                        }
-                    }
-                }))
-                .send()
-                .await?;
-        }
-        Ok(())
-    }
+    // async fn delete_index(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     if let Some(index) = &self.index {
+    //         self.client
+    //             .indices()
+    //             .delete(IndicesDeleteParts::Index(&[index.as_str()]))
+    //             .send()
+    //             .await?;
+    //     }
+    //     Ok(())
+    // }
+    //
+    // async fn create_index(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     if let Some(index) = &self.index {
+    //         self.client
+    //             .indices()
+    //             .create(IndicesCreateParts::Index(&index))
+    //             .body(json!({
+    //                 "settings": {
+    //                     "index": {
+    //                         "number_of_shards": "3",
+    //                         "number_of_replicas": "1",
+    //                         "refresh_interval": "1s",
+    //                     }
+    //                 }
+    //             }))
+    //             .send()
+    //             .await?;
+    //     }
+    //     Ok(())
+    // }
 
     async fn bulk_load_data<T: Serialize>(&self, items: &[Box<T>], mut start_id: usize) -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
         let permit = self.semaphore.acquire().await.unwrap();
@@ -115,11 +114,11 @@ impl BulkElasticLoad {
 
 
 impl ElasticLoad for BulkElasticLoad {
-    async fn reset_index(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.delete_index().await?;
-        self.create_index().await?;
-        Ok(())
-    }
+    // async fn reset_index(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     self.delete_index().await?;
+    //     self.create_index().await?;
+    //     Ok(())
+    // }
 
     async fn load<T: Serialize>(&self, items: &[Box<T>]) -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
         let items_length = items.len();

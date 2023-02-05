@@ -85,13 +85,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (start, tally) = match loader {
         Loader::SingleLoader(loader) => {
-            loader.reset_index().await?;
             sleep(Duration::new(60, 0));
             let start = Instant::now();
             (start, loader.load(&crashes[..]).await?)
         }
         Loader::BulkLoader(loader) => {
-            loader.reset_index().await?;
             sleep(Duration::new(60, 0));
             let start = Instant::now();
             (start, loader.load(&crashes[..]).await?)

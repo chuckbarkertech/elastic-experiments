@@ -7,7 +7,6 @@ use elasticsearch::http::transport::SingleNodeConnectionPool;
 use elasticsearch::http::transport::TransportBuilder;
 use elasticsearch::auth::Credentials;
 use elasticsearch::cert::CertificateValidation;
-use elasticsearch::indices::{IndicesCreateParts, IndicesDeleteParts};
 use elasticsearch::params::Refresh;
 use tokio::sync::{Semaphore};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -24,32 +23,32 @@ impl SingleElasticLoad {
         SingleElasticLoadBuilder::new()
     }
 
-    async fn delete_index(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.client
-            .indices()
-            .delete(IndicesDeleteParts::Index(&[self.index.as_str()]))
-            .send()
-            .await?;
-        Ok(())
-    }
-
-    async fn create_index(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.client
-            .indices()
-            .create(IndicesCreateParts::Index(&self.index))
-            .body(json!({
-                "settings": {
-                    "index": {
-                        "number_of_shards": "3",
-                        "number_of_replicas": "1",
-                        "refresh_interval": "1s",
-                    }
-                }
-            }))
-            .send()
-            .await?;
-        Ok(())
-    }
+    // async fn delete_index(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     self.client
+    //         .indices()
+    //         .delete(IndicesDeleteParts::Index(&[self.index.as_str()]))
+    //         .send()
+    //         .await?;
+    //     Ok(())
+    // }
+    //
+    // async fn create_index(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     self.client
+    //         .indices()
+    //         .create(IndicesCreateParts::Index(&self.index))
+    //         .body(json!({
+    //             "settings": {
+    //                 "index": {
+    //                     "number_of_shards": "3",
+    //                     "number_of_replicas": "1",
+    //                     "refresh_interval": "1s",
+    //                 }
+    //             }
+    //         }))
+    //         .send()
+    //         .await?;
+    //     Ok(())
+    // }
 
     async fn load_item<T: Serialize>(&self, idx: usize, item: &Box<T>) -> bool {
         let _permit = self.semaphore.acquire().await.unwrap();
@@ -67,11 +66,11 @@ impl SingleElasticLoad {
 }
 
 impl ElasticLoad for SingleElasticLoad {
-    async fn reset_index(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.delete_index().await?;
-        self.create_index().await?;
-        Ok(())
-    }
+    // async fn reset_index(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     self.delete_index().await?;
+    //     self.create_index().await?;
+    //     Ok(())
+    // }
 
     async fn load<T: Serialize>(&self, items: &[Box<T>]) -> Result<ElasticLoadResults, Box<dyn std::error::Error>> {
         let mut responses = items.iter().enumerate()
