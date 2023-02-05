@@ -24,7 +24,6 @@ pub struct MotorVehicleCrash {
 }
 
 impl MotorVehicleCrash {
-    // "../../data/Motor_Vehicle_Crashes_-_Vehicle_Information__Three_Year_Window.csv"
     pub fn load_csv(filename: String) -> Result<Vec<Box<MotorVehicleCrash>>, Box<dyn std::error::Error>> {
         let mut rdr = csv::Reader::from_path(filename).unwrap();
         let mut records: Vec<Box<MotorVehicleCrash>> = Vec::with_capacity(1_000_000);
